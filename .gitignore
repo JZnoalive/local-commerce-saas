@@ -6,3 +6,10 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Entornos virtuales, secretos y cachés
+apps/ai-bot/venv/
+apps/ai-bot/.env
+apps/web/.env*
+__pycache__/
+*.pyc

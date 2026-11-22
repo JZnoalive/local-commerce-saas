@@ -33,6 +33,38 @@ export default function AdminDashboard() {
   const [stock, setStock] = useState('');
   const [minStock, setMinStock] = useState('5');
   const [saving, setSaving] = useState(false);
+  const [aiAdvice, setAiAdvice] = useState('');
+  const [aiEngine, setAiEngine] = useState('');
+  const [loadingAdvice, setLoadingAdvice] = useState(false);
+
+  async function requestAiAdvice() {
+    if (!currentBiz) return;
+    setLoadingAdvice(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_AI_BOT_URL || 'http://localhost:8000';
+      const lowItems = products
+        .filter((p) => Number(p.stock_quantity) <= Number(p.min_stock || 5))
+        .map((p) => `${p.name} (${p.stock_quantity} uds)`);
+      const res = await fetch(`${apiUrl}/analyze-business`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business_name: currentBiz.name,
+          invested_cost: totalInvestedCost,
+          retail_value: totalRetailValue,
+          restock_cost: restockNeededCost,
+          low_stock_items: lowItems,
+        }),
+      });
+      const data = await res.json();
+      setAiAdvice(data.advice || '');
+      setAiEngine(data.engine || '');
+    } catch {
+      setAiAdvice('No se pudo conectar con el motor Multi-IA.');
+    } finally {
+      setLoadingAdvice(false);
+    }
+  }
 
   useEffect(() => {
     fetchBusinesses();
@@ -381,6 +413,33 @@ export default function AdminDashboard() {
             </p>
             <p className="text-xs text-neutral-500 mt-1">Para completar stock mínimo</p>
           </div>
+        </section>
+
+        {/* Asesor Financiero Multi-IA */}
+        <section className="animate-phantom p5-store-card rounded-2xl p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-black text-sm uppercase tracking-wider">
+                Asesor Financiero Multi-IA {aiEngine && <span className="text-xs text-[#E60012]">({aiEngine})</span>}
+              </h2>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Analiza tus costos de bodega, márgenes y reposición urgente al instante
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={requestAiAdvice}
+              disabled={loadingAdvice}
+              className="p5-pill-btn bg-[#111111] hover:bg-[#E60012] text-white text-xs font-extrabold uppercase tracking-wider px-4 py-2.5 cursor-pointer"
+            >
+              {loadingAdvice ? 'Analizando números...' : 'Pedir Diagnóstico IA'}
+            </button>
+          </div>
+          {aiAdvice && (
+            <div className="mt-4 p-4 rounded-xl bg-[#F7F7F5] border border-neutral-200 text-xs leading-relaxed whitespace-pre-line">
+              {aiAdvice}
+            </div>
+          )}
         </section>
 
         {/* Formulario Nuevo Producto */}

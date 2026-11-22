@@ -257,3 +257,26 @@ html.dark .text-emerald-800 {
 html.dark .text-\[\#E60012\] {
   color: #ff3b4b !important;
 }
+
+/* Contraste nítido en badges de estado y botones de pedidos en Modo Oscuro */
+html.dark button.bg-emerald-500\/20,
+html.dark span.bg-emerald-500\/20 {
+  background-color: rgba(16, 185, 129, 0.25) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.4) !important;
+}
+
+html.dark span.bg-amber-400\/30 {
+  background-color: rgba(251, 191, 36, 0.25) !important;
+  color: #fcd34d !important;
+}
+
+html.dark button.bg-neutral-200 {
+  background-color: #272732 !important;
+  color: #e4e4e7 !important;
+}
+
+html.dark button.bg-neutral-200:hover {
+  background-color: #e60012 !important;
+  color: #ffffff !important;
+}
