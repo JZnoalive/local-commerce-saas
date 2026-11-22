@@ -24,6 +24,8 @@ import {
   Sparkles,
   UserPlus,
   LogIn,
+  QrCode,
+  ShoppingBag,
 } from 'lucide-react';
 
 function slugify(text: string) {
@@ -41,27 +43,34 @@ function slugify(text: string) {
 
 export default function AdminDashboard() {
   const [sessionUser, setSessionUser] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [registerRole, setRegisterRole] = useState<'customer' | 'merchant'>('merchant');
 
-  // Campos de Auth
+  // Campos de Auth y Perfil
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [userPhone, setUserPhone] = useState('');
+  const [userAddress, setUserAddress] = useState('');
   const [authError, setAuthError] = useState('');
   const [authMessage, setAuthMessage] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Campos de Creación de Mini-negocio
+  // Campos interactivos de Creación / Configuración de Negocio
   const [showNewBizModal, setShowNewBizModal] = useState(false);
   const [bizName, setBizName] = useState('');
   const [bizCategory, setBizCategory] = useState('Comidas Rápidas y Postres');
   const [bizWhatsapp, setBizWhatsapp] = useState('');
   const [bizAddress, setBizAddress] = useState('');
   const [bizDeliveryFee, setBizDeliveryFee] = useState('3000');
-  const [bizPaymentInfo, setBizPaymentInfo] = useState('Nequi / Efectivo contra entrega');
+  const [paymentChannel, setPaymentChannel] = useState<'Nequi' | 'Bancolombia' | 'Daviplata' | 'Nequi y Bancolombia' | 'Efectivo contra entrega'>('Nequi');
+  const [paymentAccount, setPaymentAccount] = useState('');
+  const [qrFile, setQrFile] = useState<File | null>(null);
   const [creatingBiz, setCreatingBiz] = useState(false);
 
-  // Estado del Panel
+  // Estado del Panel de Comerciante
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [selectedBizId, setSelectedBizId] = useState<string>('');
   const [products, setProducts] = useState<any[]>([]);
@@ -89,15 +98,29 @@ export default function AdminDashboard() {
       if (params.get('mode') === 'register') {
         setAuthMode('register');
       }
+      if (params.get('role') === 'customer') {
+        setAuthMode('register');
+        setRegisterRole('customer');
+      }
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSessionUser(data.session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data }) => {
+      const user = data.session?.user ?? null;
+      setSessionUser(user);
+      if (user) {
+        await loadProfile(user.id);
+      }
       setAuthChecking(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSessionUser(session?.user ?? null);
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const user = session?.user ?? null;
+      setSessionUser(user);
+      if (user) {
+        await loadProfile(user.id);
+      } else {
+        setUserProfile(null);
+      }
       setAuthChecking(false);
     });
 
@@ -105,6 +128,16 @@ export default function AdminDashboard() {
       listener.subscription.unsubscribe();
     };
   }, []);
+
+  async function loadProfile(userId: string) {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (data) {
+      setUserProfile(data);
+      setFullName(data.full_name || '');
+      setUserPhone(data.phone || '');
+      setUserAddress(data.default_address || '');
+    }
+  }
 
   useEffect(() => {
     if (!sessionUser) {
@@ -142,9 +175,36 @@ export default function AdminDashboard() {
     };
   }, [selectedBizId]);
 
+  async function uploadQrIfSelected(ownerId: string): Promise<string | null> {
+    if (!qrFile) return null;
+    const ext = qrFile.name.split('.').pop() || 'png';
+    const filePath = `${ownerId}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('qr-codes').upload(filePath, qrFile, {
+      upsert: true,
+    });
+    if (error) {
+      console.warn('No se pudo subir el QR:', error.message);
+      return null;
+    }
+    const { data } = supabase.storage.from('qr-codes').getPublicUrl(filePath);
+    return data?.publicUrl || null;
+  }
+
+  function buildPaymentLabel() {
+    if (paymentChannel === 'Efectivo contra entrega') {
+      return paymentAccount.trim()
+        ? `Efectivo contra entrega (${paymentAccount.trim()})`
+        : 'Efectivo contra entrega';
+    }
+    return paymentAccount.trim()
+      ? `${paymentChannel}: ${paymentAccount.trim()}`
+      : paymentChannel;
+  }
+
   async function createBusinessForOwner(ownerId: string) {
-    const cleanPhone = bizWhatsapp.replace(/\D/g, '');
+    const cleanPhone = (bizWhatsapp || userPhone).replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('57') ? cleanPhone : `57${cleanPhone}`;
+    const qrUrl = await uploadQrIfSelected(ownerId);
 
     const { data: newBiz, error: bizErr } = await supabase
       .from('businesses')
@@ -154,9 +214,10 @@ export default function AdminDashboard() {
         slug: slugify(bizName.trim()),
         category: bizCategory.trim(),
         phone_whatsapp: formattedPhone,
-        address: bizAddress.trim() || 'Pueblo Nuevo, Córdoba',
+        address: bizAddress.trim() || userAddress.trim() || 'Pueblo Nuevo, Córdoba',
         delivery_fee: Number(bizDeliveryFee || 0),
-        payment_info: bizPaymentInfo.trim() || 'Efectivo contra entrega',
+        payment_info: buildPaymentLabel(),
+        qr_code_url: qrUrl,
         is_manually_paused: false,
       })
       .select()
@@ -164,7 +225,6 @@ export default function AdminDashboard() {
 
     if (bizErr) throw new Error(bizErr.message);
 
-    // Crear horarios activos de lunes a domingo (0 a 6)
     const defaultHours = Array.from({ length: 7 }, (_, day) => ({
       business_id: newBiz.id,
       day_of_week: day,
@@ -191,30 +251,75 @@ export default function AdminDashboard() {
         });
         if (error) throw new Error(error.message);
       } else {
-        if (!bizName.trim() || !bizWhatsapp.trim()) {
-          throw new Error('Completa el nombre de tu mini-negocio y tu número de WhatsApp.');
+        if (!fullName.trim()) {
+          throw new Error('Por favor escribe tu nombre y apellido.');
         }
+        if (registerRole === 'merchant' && (!bizName.trim() || !bizWhatsapp.trim())) {
+          throw new Error('Completa el nombre de tu local y tu número de WhatsApp.');
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
+          options: {
+            data: {
+              role: registerRole,
+              full_name: fullName.trim(),
+              phone: userPhone.trim(),
+              default_address: userAddress.trim(),
+            },
+          },
         });
         if (error) throw new Error(error.message);
 
         if (data.user) {
-          await createBusinessForOwner(data.user.id);
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            role: registerRole,
+            full_name: fullName.trim(),
+            phone: userPhone.trim(),
+            default_address: userAddress.trim(),
+          });
+
+          if (registerRole === 'merchant') {
+            await createBusinessForOwner(data.user.id);
+          }
+
           if (!data.session) {
             setAuthMessage(
-              'Cuenta y negocio creados. Revisa tu correo para confirmar tu cuenta y luego inicia sesión.'
+              'Cuenta registrada con éxito. Revisa tu correo para confirmarla y luego inicia sesión.'
             );
             setAuthMode('login');
           }
         }
       }
     } catch (err: any) {
-      setAuthError(err.message || 'No se pudo completar la autenticación.');
+      setAuthError(err.message || 'No se pudo completar el proceso.');
     } finally {
       setAuthLoading(false);
     }
+  }
+
+  async function handleSaveCustomerProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!sessionUser) return;
+    setCreatingBiz(true);
+    await supabase.from('profiles').upsert({
+      id: sessionUser.id,
+      role: 'customer',
+      full_name: fullName.trim(),
+      phone: userPhone.trim(),
+      default_address: userAddress.trim(),
+    });
+    setUserProfile({
+      id: sessionUser.id,
+      role: 'customer',
+      full_name: fullName.trim(),
+      phone: userPhone.trim(),
+      default_address: userAddress.trim(),
+    });
+    setCreatingBiz(false);
+    alert('Tus datos de cliente se guardaron. Al ir al catálogo se autocompletarán en tu pedido.');
   }
 
   async function handleCreateExtraBusiness(e: React.FormEvent) {
@@ -226,6 +331,8 @@ export default function AdminDashboard() {
       setBizName('');
       setBizWhatsapp('');
       setBizAddress('');
+      setPaymentAccount('');
+      setQrFile(null);
       setShowNewBizModal(false);
       await fetchMyBusinesses(sessionUser.id, created.id);
     } catch (err: any) {
@@ -420,20 +527,161 @@ export default function AdminDashboard() {
     XLSX.writeFile(workbook, `Inventario_${currentBiz.slug}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
-  // Pantalla de carga inicial de sesión
+  const renderBusinessFormFields = () => (
+    <div className="pt-2 border-t border-neutral-200 space-y-3">
+      <p className="text-[11px] font-black uppercase tracking-wider text-[#E60012]">
+        Datos Interactivos de tu Local / Emprendimiento
+      </p>
+
+      <div>
+        <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+          Aquí va el nombre de tu local o emprendimiento
+        </label>
+        <input
+          type="text"
+          required
+          placeholder="Ej: Postres y Salchipapas El Parque"
+          value={bizName}
+          onChange={(e) => setBizName(e.target.value)}
+          className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+          <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+            Categoría del negocio
+          </label>
+          <select
+            value={bizCategory}
+            onChange={(e) => setBizCategory(e.target.value)}
+            className="w-full px-3 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl text-xs font-bold"
+          >
+            <option>Comidas Rápidas y Postres</option>
+            <option>Droguería y Salud</option>
+            <option>Supermercado y Tienda</option>
+            <option>Variedades y Regalos</option>
+            <option>Servicios Locales</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+            Aquí va el WhatsApp del negocio (10 dígitos)
+          </label>
+          <input
+            type="tel"
+            required
+            placeholder="Ej: 3001234567"
+            value={bizWhatsapp}
+            onChange={(e) => setBizWhatsapp(e.target.value.replace(/\D/g, '').slice(0, 12))}
+            className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+          <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+            Aquí va la dirección o barrio del local
+          </label>
+          <input
+            type="text"
+            required
+            placeholder="Ej: Cra 10 # 14-20, Centro"
+            value={bizAddress}
+            onChange={(e) => setBizAddress(e.target.value)}
+            className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+            Aquí va el valor del domicilio en COP
+          </label>
+          <input
+            type="number"
+            min="0"
+            required
+            placeholder="Ej: 3000"
+            value={bizDeliveryFee}
+            onChange={(e) => setBizDeliveryFee(e.target.value)}
+            className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+          <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+            Medio de cobro principal
+          </label>
+          <select
+            value={paymentChannel}
+            onChange={(e) => setPaymentChannel(e.target.value as any)}
+            className="w-full px-3 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl text-xs font-bold"
+          >
+            <option value="Nequi">Nequi</option>
+            <option value="Bancolombia">Bancolombia</option>
+            <option value="Daviplata">Daviplata</option>
+            <option value="Nequi y Bancolombia">Nequi y Bancolombia</option>
+            <option value="Efectivo contra entrega">Efectivo contra entrega</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+            {paymentChannel === 'Efectivo contra entrega'
+              ? 'Nota de efectivo (opcional)'
+              : 'Aquí va tu número / cuenta de cobro'}
+          </label>
+          <input
+            type="text"
+            placeholder={
+              paymentChannel === 'Efectivo contra entrega'
+                ? 'Ej: Llevamos cambio de $50.000'
+                : 'Ej: Nequi 3001234567 / Ahorros 123-456'
+            }
+            value={paymentAccount}
+            onChange={(e) => setPaymentAccount(e.target.value)}
+            className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+          />
+        </div>
+      </div>
+
+      <div className="bg-[#F7F7F5] border border-dashed border-neutral-300 rounded-xl p-3">
+        <label className="block text-[11px] font-bold text-neutral-700 mb-1 flex items-center gap-1.5">
+          <QrCode className="w-3.5 h-3.5 text-[#E60012]" />
+          Código QR de pago (opcional — Nequi, Bancolombia o Bre-B)
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setQrFile(e.target.files?.[0] || null)}
+          className="text-xs text-neutral-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#111111] file:text-white hover:file:bg-[#E60012] cursor-pointer"
+        />
+        {qrFile && (
+          <p className="text-[11px] text-emerald-700 font-bold mt-1">
+            QR seleccionado: {qrFile.name}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   if (authChecking) {
     return (
       <div className="min-h-screen bg-[#F7F7F5] flex items-center justify-center p-6 font-bold text-sm">
-        Verificando credenciales del comerciante...
+        Verificando sesión...
       </div>
     );
   }
 
-  // Pantalla de Login / Registro de Emprendedores
+  // Pantalla de Login o Registro (Clientes y Negocios)
   if (!sessionUser) {
     return (
       <main className="min-h-screen bg-[#F7F7F5] text-[#111111] flex flex-col justify-between p-4">
-        <div className="max-w-md w-full mx-auto my-auto py-8 space-y-6">
+        <div className="max-w-lg w-full mx-auto my-auto py-8 space-y-6">
           <Link
             href="/"
             className="inline-flex items-center gap-2 text-xs font-extrabold text-neutral-600 hover:text-[#111111]"
@@ -444,15 +692,15 @@ export default function AdminDashboard() {
           <div className="bg-white border border-neutral-200 rounded-2xl shadow-lg overflow-hidden">
             <div className="bg-[#111111] text-white p-6">
               <span className="p5-slash-badge bg-[#E60012] text-white text-[10px] font-black uppercase px-2.5 py-0.5">
-                Portal Comerciantes
+                Acceso Pueblo Nuevo
               </span>
               <h1 className="text-xl font-black mt-2">
-                {authMode === 'login' ? 'Ingresa a tu Panel' : 'Registra tu Mini-negocio'}
+                {authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta Nueva'}
               </h1>
               <p className="text-xs text-neutral-400 mt-1">
                 {authMode === 'login'
-                  ? 'Administra tu inventario, pedidos en vivo y análisis financiero.'
-                  : 'Crea tu cuenta y publica tu tienda en Pueblo Nuevo en menos de 1 minuto.'}
+                  ? 'Entra como cliente para autocompletar tus pedidos o como comerciante para gestionar tu tienda.'
+                  : 'Regístrate como cliente para pedir más rápido o registra tu local y empieza a vender.'}
               </p>
             </div>
 
@@ -483,7 +731,7 @@ export default function AdminDashboard() {
                     : 'bg-[#F7F7F5] text-neutral-500'
                 }`}
               >
-                <UserPlus className="w-3.5 h-3.5" /> Registrar Negocio
+                <UserPlus className="w-3.5 h-3.5" /> Registrarse
               </button>
             </div>
 
@@ -499,12 +747,92 @@ export default function AdminDashboard() {
                 </div>
               )}
 
+              {authMode === 'register' && (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setRegisterRole('customer')}
+                    className={`p-3 rounded-xl border text-left text-xs font-extrabold cursor-pointer ${
+                      registerRole === 'customer'
+                        ? 'border-[#111111] bg-[#111111] text-white'
+                        : 'border-neutral-200 bg-[#F7F7F5] text-neutral-700'
+                    }`}
+                  >
+                    🛍️ Soy Cliente
+                    <span className="block text-[10px] font-normal opacity-80 mt-0.5">
+                      Guardo mis datos para pedir
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegisterRole('merchant')}
+                    className={`p-3 rounded-xl border text-left text-xs font-extrabold cursor-pointer ${
+                      registerRole === 'merchant'
+                        ? 'border-[#E60012] bg-[#E60012] text-white'
+                        : 'border-neutral-200 bg-[#F7F7F5] text-neutral-700'
+                    }`}
+                  >
+                    🏪 Tengo un Negocio
+                    <span className="block text-[10px] font-normal opacity-90 mt-0.5">
+                      Publico tienda y gestiono stock
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {authMode === 'register' && (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                      Aquí va tu nombre y apellido
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: Carlos Andrés Pérez"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                        Aquí va tu celular (10 dígitos)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="Ej: 3104567890"
+                        value={userPhone}
+                        onChange={(e) => setUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                        Aquí va tu dirección de entrega
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ej: Barrio Las Mercedes, Cra 8"
+                        value={userAddress}
+                        onChange={(e) => setUserAddress(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div>
-                <label className="block text-xs font-bold text-neutral-600 mb-1">Correo electrónico</label>
+                <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                  Correo electrónico
+                </label>
                 <input
                   type="email"
                   required
-                  placeholder="tutienda@correo.com"
+                  placeholder="tucorreo@ejemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl focus:outline-none focus:border-[#111111]"
@@ -512,7 +840,9 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-600 mb-1">Contraseña (mín. 6 caracteres)</label>
+                <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                  Contraseña (mínimo 6 caracteres)
+                </label>
                 <input
                   type="password"
                   required
@@ -524,65 +854,7 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              {authMode === 'register' && (
-                <div className="pt-2 border-t border-neutral-200 space-y-3">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-[#E60012]">
-                    Datos de tu Emprendimiento
-                  </p>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Nombre del negocio (ej. Postres Dulce Valle)"
-                    value={bizName}
-                    onChange={(e) => setBizName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-                  />
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <select
-                      value={bizCategory}
-                      onChange={(e) => setBizCategory(e.target.value)}
-                      className="px-3 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl text-xs font-bold"
-                    >
-                      <option>Comidas Rápidas y Postres</option>
-                      <option>Droguería y Salud</option>
-                      <option>Supermercado y Tienda</option>
-                      <option>Variedades y Regalos</option>
-                      <option>Servicios Locales</option>
-                    </select>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="WhatsApp (3001234567)"
-                      value={bizWhatsapp}
-                      onChange={(e) => setBizWhatsapp(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                      className="px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <input
-                      type="text"
-                      placeholder="Dirección / Barrio"
-                      value={bizAddress}
-                      onChange={(e) => setBizAddress(e.target.value)}
-                      className="px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Domicilio ($ COP)"
-                      value={bizDeliveryFee}
-                      onChange={(e) => setBizDeliveryFee(e.target.value)}
-                      className="px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Medios de pago (ej. Nequi 300... / Efectivo)"
-                    value={bizPaymentInfo}
-                    onChange={(e) => setBizPaymentInfo(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-                  />
-                </div>
-              )}
+              {authMode === 'register' && registerRole === 'merchant' && renderBusinessFormFields()}
 
               <button
                 type="submit"
@@ -592,9 +864,11 @@ export default function AdminDashboard() {
                 <Lock className="w-4 h-4" />
                 <span>
                   {authLoading
-                    ? 'Procesando...'
+                    ? 'Guardando...'
                     : authMode === 'login'
-                    ? 'Entrar a mi Panel'
+                    ? 'Entrar'
+                    : registerRole === 'customer'
+                    ? 'Crear Cuenta de Cliente'
                     : 'Crear Cuenta y Abrir Panel'}
                 </span>
               </button>
@@ -606,67 +880,111 @@ export default function AdminDashboard() {
   }
 
   if (loading) {
-    return <div className="p-8 font-bold">Cargando panel de gestión...</div>;
+    return <div className="p-8 font-bold">Cargando tu cuenta...</div>;
   }
 
-  // Si el usuario inició sesión pero aún no tiene negocios vinculados
+  // Vista para cuenta de Cliente o cuenta sin negocio aún (permite editar datos de cliente o activar negocio)
   if (businesses.length === 0) {
     return (
-      <main className="min-h-screen bg-[#F7F7F5] text-[#111111] p-6 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white border border-neutral-200 rounded-2xl p-6 space-y-4 shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="p5-slash-badge bg-[#E60012] text-white text-[10px] font-black uppercase px-2.5 py-0.5">
-              Activar Tienda
-            </span>
+      <main className="min-h-screen bg-[#F7F7F5] text-[#111111] p-4 sm:p-6">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center justify-between bg-white border border-neutral-200 rounded-2xl p-4">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="p-2.5 rounded-xl bg-[#F7F7F5] hover:bg-[#111111] hover:text-white"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Link>
+              <div>
+                <p className="text-xs text-neutral-500">Sesión iniciada como</p>
+                <p className="font-black text-sm">{sessionUser.email}</p>
+              </div>
+            </div>
             <button
               onClick={handleLogout}
-              className="text-xs font-bold text-neutral-500 hover:text-[#E60012] cursor-pointer"
+              className="flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-[#E60012] cursor-pointer"
             >
-              Cerrar sesión
+              <LogOut className="w-4 h-4" /> Cerrar sesión
             </button>
           </div>
-          <h2 className="text-lg font-black">Crea tu primer mini-negocio</h2>
-          <p className="text-xs text-neutral-500">
-            Tu cuenta (<strong>{sessionUser.email}</strong>) aún no tiene un comercio asociado. Completa estos datos para desbloquear tu panel:
-          </p>
-          <form onSubmit={handleCreateExtraBusiness} className="space-y-3 text-sm">
-            <input
-              type="text"
-              required
-              placeholder="Nombre del negocio"
-              value={bizName}
-              onChange={(e) => setBizName(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-            />
-            <input
-              type="tel"
-              required
-              placeholder="WhatsApp (ej. 3001234567)"
-              value={bizWhatsapp}
-              onChange={(e) => setBizWhatsapp(e.target.value.replace(/\D/g, '').slice(0, 12))}
-              className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-            />
-            <input
-              type="text"
-              placeholder="Dirección en Pueblo Nuevo"
-              value={bizAddress}
-              onChange={(e) => setBizAddress(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-            />
-            <button
-              type="submit"
-              disabled={creatingBiz}
-              className="p5-pill-btn w-full bg-[#111111] hover:bg-[#E60012] text-white text-xs font-extrabold uppercase py-3 cursor-pointer"
-            >
-              {creatingBiz ? 'Creando...' : 'Desbloquear mi Panel'}
-            </button>
-          </form>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Tarjeta Perfil Cliente */}
+            <div className="bg-white border border-neutral-200 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center gap-2 text-[#111111] font-black text-sm uppercase">
+                <ShoppingBag className="w-4 h-4 text-emerald-600" /> Mis Datos de Domicilio (Cliente)
+              </div>
+              <p className="text-xs text-neutral-500">
+                Guarda tus datos para que aparezcan listos cuando pidas en cualquier tienda de Pueblo Nuevo.
+              </p>
+              <form onSubmit={handleSaveCustomerProfile} className="space-y-3 text-sm">
+                <input
+                  type="text"
+                  required
+                  placeholder="Nombre y apellido"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                />
+                <input
+                  type="tel"
+                  required
+                  placeholder="Celular (3001234567)"
+                  value={userPhone}
+                  onChange={(e) => setUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Dirección y barrio en Pueblo Nuevo"
+                  value={userAddress}
+                  onChange={(e) => setUserAddress(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                />
+                <button
+                  type="submit"
+                  disabled={creatingBiz}
+                  className="w-full bg-[#111111] hover:bg-emerald-600 text-white text-xs font-extrabold uppercase py-3 rounded-xl cursor-pointer"
+                >
+                  Guardar Mis Datos de Cliente
+                </button>
+                <Link
+                  href="/"
+                  className="block text-center text-xs font-extrabold text-[#E60012] pt-1 hover:underline"
+                >
+                  Ir al catálogo a hacer un pedido →
+                </Link>
+              </form>
+            </div>
+
+            {/* Tarjeta Activar Mini-negocio */}
+            <div className="bg-white border border-neutral-200 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center gap-2 text-[#111111] font-black text-sm uppercase">
+                <Store className="w-4 h-4 text-[#E60012]" /> ¿También tienes un negocio?
+              </div>
+              <p className="text-xs text-neutral-500">
+                Activa tu tienda para gestionar inventario, pedidos, cobros y ver gráficos.
+              </p>
+              <form onSubmit={handleCreateExtraBusiness} className="space-y-3 text-sm">
+                {renderBusinessFormFields()}
+                <button
+                  type="submit"
+                  disabled={creatingBiz}
+                  className="p5-pill-btn w-full bg-[#E60012] hover:bg-[#111111] text-white text-xs font-extrabold uppercase py-3 cursor-pointer"
+                >
+                  {creatingBiz ? 'Creando...' : 'Desbloquear Panel de Negocio'}
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       </main>
     );
   }
 
-  // Cálculos para Gráficos Juguetones e Interactivos
+  // Gráficos interactivos
   const pendingOrders = orders.filter((o) => o.status === 'pendiente');
   const deliveredOrders = orders.filter((o) => o.status === 'entregado');
   const canceledOrders = orders.filter((o) => o.status === 'cancelado');
@@ -703,7 +1021,8 @@ export default function AdminDashboard() {
             <div>
               <h1 className="font-black text-lg tracking-tight">Panel de Gestión y Pedidos</h1>
               <p className="text-xs text-neutral-500 font-medium">
-                Sesión: <strong className="text-[#111111]">{sessionUser.email}</strong>
+                {userProfile?.full_name ? `${userProfile.full_name} • ` : ''}
+                <strong className="text-[#111111]">{sessionUser.email}</strong>
               </p>
             </div>
           </div>
@@ -725,7 +1044,6 @@ export default function AdminDashboard() {
               type="button"
               onClick={() => setShowNewBizModal(true)}
               className="p5-pill-btn flex items-center gap-1.5 bg-neutral-100 hover:bg-[#111111] text-neutral-800 hover:text-white text-xs font-extrabold px-3.5 py-2.5 cursor-pointer"
-              title="Agregar otro emprendimiento"
             >
               <Store className="w-3.5 h-3.5" /> + Negocio
             </button>
@@ -764,7 +1082,7 @@ export default function AdminDashboard() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* Bandeja de Pedidos Pendientes */}
+        {/* Bandeja de Pedidos Entrantes */}
         <section className="animate-phantom p5-store-card rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-black text-sm uppercase tracking-wider flex items-center gap-2">
@@ -880,7 +1198,7 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        {/* Radiografía Visual Juguetona + Diagnóstico IA */}
+        {/* Gráficos Juguetones + Diagnóstico IA */}
         <section className="animate-phantom p5-store-card rounded-2xl p-6 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -904,23 +1222,14 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {/* 3 Gráficos Interactivos Animados */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Gráfico 1: Donut Animado Costo vs Ganancia */}
             <div className="bg-[#F7F7F5] border border-neutral-200 rounded-2xl p-4 flex flex-col justify-between">
               <p className="text-xs font-black uppercase text-neutral-600">
                 1. Mezcla de Valor en Bodega
               </p>
               <div className="my-4 flex items-center justify-center gap-5">
                 <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
-                    fill="none"
-                    stroke="#e5e5e5"
-                    strokeWidth="4.5"
-                  />
+                  <circle cx="18" cy="18" r="14" fill="none" stroke="#e5e5e5" strokeWidth="4.5" />
                   <circle
                     cx="18"
                     cy="18"
@@ -959,7 +1268,6 @@ export default function AdminDashboard() {
               </p>
             </div>
 
-            {/* Gráfico 2: Barras Juguetonas de Margen por Producto */}
             <div className="bg-[#F7F7F5] border border-neutral-200 rounded-2xl p-4 flex flex-col justify-between">
               <p className="text-xs font-black uppercase text-neutral-600">
                 2. Top Productos por Ganancia Unitaria
@@ -1003,26 +1311,25 @@ export default function AdminDashboard() {
                 )}
               </div>
               <p className="text-[11px] text-neutral-600 leading-relaxed">
-                Las barras en <strong className="text-[#E60012]">rojo</strong> indican productos con stock bajo que conviene surtir primero para no perder ventas.
+                Las barras en <strong className="text-[#E60012]">rojo</strong> indican productos con stock bajo que conviene surtir primero.
               </p>
             </div>
 
-            {/* Gráfico 3: Pulso de Pedidos */}
             <div className="bg-[#F7F7F5] border border-neutral-200 rounded-2xl p-4 flex flex-col justify-between">
               <p className="text-xs font-black uppercase text-neutral-600">
                 3. Termómetro de Pedidos Web
               </p>
               <div className="my-4 space-y-3">
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-white rounded-xl p-2.5 border border-neutral-200 transition-transform hover:-translate-y-0.5">
+                  <div className="bg-white rounded-xl p-2.5 border border-neutral-200">
                     <p className="text-lg font-black text-amber-600">{pendingOrders.length}</p>
                     <p className="text-[10px] font-bold text-neutral-500 uppercase">Pendientes</p>
                   </div>
-                  <div className="bg-white rounded-xl p-2.5 border border-neutral-200 transition-transform hover:-translate-y-0.5">
+                  <div className="bg-white rounded-xl p-2.5 border border-neutral-200">
                     <p className="text-lg font-black text-emerald-600">{deliveredOrders.length}</p>
                     <p className="text-[10px] font-bold text-neutral-500 uppercase">Entregados</p>
                   </div>
-                  <div className="bg-white rounded-xl p-2.5 border border-neutral-200 transition-transform hover:-translate-y-0.5">
+                  <div className="bg-white rounded-xl p-2.5 border border-neutral-200">
                     <p className="text-lg font-black text-neutral-500">{canceledOrders.length}</p>
                     <p className="text-[10px] font-bold text-neutral-500 uppercase">Cancelados</p>
                   </div>
@@ -1048,8 +1355,8 @@ export default function AdminDashboard() {
               </div>
               <p className="text-[11px] text-neutral-600 leading-relaxed">
                 {orders.length === 0
-                  ? 'Aún no entran pedidos web; comparte tu enlace de Comercio Local por WhatsApp para recibir los primeros.'
-                  : `Llevas ${deliveredOrders.length} de ${orders.length} pedidos completados con éxito.`}
+                  ? 'Aún no entran pedidos web; comparte tu enlace de Comercio Local por WhatsApp.'
+                  : `Llevas ${deliveredOrders.length} de ${orders.length} pedidos completados.`}
               </p>
             </div>
           </div>
@@ -1217,33 +1524,11 @@ export default function AdminDashboard() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="animate-modal-pop w-full max-w-md bg-white rounded-2xl border border-neutral-200 p-6 space-y-4 shadow-xl"
+            className="animate-modal-pop w-full max-w-lg bg-white rounded-2xl border border-neutral-200 p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto"
           >
-            <h3 className="text-lg font-black">Registrar otro mini-negocio</h3>
+            <h3 className="text-lg font-black">Registrar otro local o mini-negocio</h3>
             <form onSubmit={handleCreateExtraBusiness} className="space-y-3 text-sm">
-              <input
-                type="text"
-                required
-                placeholder="Nombre del emprendimiento"
-                value={bizName}
-                onChange={(e) => setBizName(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-              />
-              <input
-                type="tel"
-                required
-                placeholder="WhatsApp (ej. 3001234567)"
-                value={bizWhatsapp}
-                onChange={(e) => setBizWhatsapp(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-              />
-              <input
-                type="text"
-                placeholder="Dirección en Pueblo Nuevo"
-                value={bizAddress}
-                onChange={(e) => setBizAddress(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-              />
+              {renderBusinessFormFields()}
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
@@ -1257,7 +1542,7 @@ export default function AdminDashboard() {
                   disabled={creatingBiz}
                   className="flex-1 py-2.5 rounded-xl bg-[#E60012] text-white text-xs font-extrabold uppercase cursor-pointer"
                 >
-                  {creatingBiz ? 'Creando...' : 'Guardar Negocio'}
+                  {creatingBiz ? 'Guardando...' : 'Guardar Negocio'}
                 </button>
               </div>
             </form>

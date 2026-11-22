@@ -15,6 +15,8 @@ import {
   Banknote,
   Search,
   ShieldCheck,
+  QrCode,
+  UserCheck,
 } from 'lucide-react';
 
 function checkIsOpen(business: any, hours: any[]) {
@@ -49,7 +51,29 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
   const [carts, setCarts] = useState<Record<string, Record<string, number>>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
+  const [loggedProfile, setLoggedProfile] = useState<any | null>(null);
   const cartReadyRef = useRef(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data }) => {
+      const user = data?.user;
+      if (!user) return;
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (prof) {
+        setLoggedProfile(prof);
+      } else {
+        setLoggedProfile({
+          full_name: user.user_metadata?.full_name || '',
+          phone: user.user_metadata?.phone || '',
+          default_address: user.user_metadata?.default_address || '',
+        });
+      }
+    });
+  }, []);
 
   useEffect(() => {
     try {
@@ -84,11 +108,20 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState<'Nequi / Transferencia' | 'Efectivo contra entrega'>(
-    'Nequi / Transferencia'
-  );
+  const [paymentMethod, setPaymentMethod] = useState<
+    'Nequi / Bancolombia / Transferencia' | 'Efectivo contra entrega'
+  >('Nequi / Bancolombia / Transferencia');
   const [submitting, setSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
+
+  const openCheckoutForBusiness = (biz: any) => {
+    setCheckoutBiz(biz);
+    if (loggedProfile) {
+      setCustomerName((prev) => prev || loggedProfile.full_name || '');
+      setCustomerPhone((prev) => prev || loggedProfile.phone || '');
+      setDeliveryAddress((prev) => prev || loggedProfile.default_address || '');
+    }
+  };
 
   const categories = useMemo(() => {
     const unique = Array.from(
@@ -169,7 +202,7 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
     if (!cleanName) {
       isSubmittingRef.current = false;
       setSubmitting(false);
-      alert('Por favor escribe tu nombre para el pedido.');
+      alert('Por favor escribe tu nombre y apellido para el pedido.');
       return;
     }
     if (!isValidColombiaMobile(cleanPhone)) {
@@ -181,7 +214,7 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
     if (!cleanAddress) {
       isSubmittingRef.current = false;
       setSubmitting(false);
-      alert('Por favor ingresa la dirección de entrega en Pueblo Nuevo.');
+      alert('Por favor ingresa la dirección exacta de entrega en Pueblo Nuevo.');
       return;
     }
     if (!acceptedPrivacy) {
@@ -252,6 +285,15 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
 
   return (
     <>
+      {loggedProfile && (
+        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-2.5 rounded-2xl text-xs font-bold">
+          <span className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-emerald-600" />
+            Hola {loggedProfile.full_name || 'vecino/a'} — tus datos de entrega están listos para autocompletar al pedir.
+          </span>
+        </div>
+      )}
+
       {/* Buscador y Filtros Rápidos */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between bg-white border border-neutral-200 rounded-2xl p-3">
         <div className="relative flex-1">
@@ -408,7 +450,7 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
                 {summary.totalItems > 0 ? (
                   <button
                     type="button"
-                    onClick={() => setCheckoutBiz(biz)}
+                    onClick={() => openCheckoutForBusiness(biz)}
                     className="p5-pill-btn mt-6 w-full flex items-center justify-between bg-[#E60012] hover:bg-[#111111] text-white text-xs font-extrabold uppercase tracking-wider px-5 py-3.5 cursor-pointer shadow-md"
                   >
                     <span>Confirmar Pedido ({summary.totalItems})</span>
@@ -475,8 +517,8 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
                       </div>
                     ))}
                     <div className="border-t border-neutral-200 pt-1.5 flex justify-between text-neutral-500">
-                      <span>Domicilio</span>
-                      <span>${s.deliveryFee.toLocaleString('es-CO')}</span>
+                      <span>Valor del domicilio</span>
+                      <span>${s.deliveryFee.toLocaleString('es-CO')} COP</span>
                     </div>
                     <div className="flex justify-between font-black text-sm text-[#111111] pt-1">
                       <span>Total a pagar</span>
@@ -487,30 +529,45 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
               })()}
 
               <div className="space-y-3">
-                <input
-                  type="text"
-                  required
-                  placeholder="Tu nombre completo"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl focus:outline-none focus:border-[#111111]"
-                />
-                <input
-                  type="tel"
-                  required
-                  placeholder="Tu número de celular / WhatsApp (10 dígitos)"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl focus:outline-none focus:border-[#111111]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Dirección exacta y barrio en Pueblo Nuevo"
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl focus:outline-none focus:border-[#111111]"
-                />
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                    Aquí va tu nombre y apellido
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: Valentina Mendoza"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl focus:outline-none focus:border-[#111111]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                    Aquí va tu número de celular / WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Ej: 3001234567"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl focus:outline-none focus:border-[#111111]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                    Aquí va tu dirección exacta y barrio en Pueblo Nuevo
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: Calle 12 # 8-40, Barrio El Centro"
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl focus:outline-none focus:border-[#111111]"
+                  />
+                </div>
               </div>
 
               <div>
@@ -520,15 +577,15 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('Nequi / Transferencia')}
+                    onClick={() => setPaymentMethod('Nequi / Bancolombia / Transferencia')}
                     className={`p-3 rounded-xl border text-left text-xs font-bold flex flex-col gap-1 cursor-pointer transition-all ${
-                      paymentMethod === 'Nequi / Transferencia'
+                      paymentMethod === 'Nequi / Bancolombia / Transferencia'
                         ? 'border-[#E60012] bg-[#E60012]/5 text-[#111111]'
                         : 'border-neutral-200 text-neutral-600'
                     }`}
                   >
                     <Wallet className="w-4 h-4 text-[#E60012]" />
-                    <span>Nequi / Transf.</span>
+                    <span>Nequi / Bancolombia</span>
                   </button>
                   <button
                     type="button"
@@ -543,15 +600,29 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
                     <span>Efectivo al recibir</span>
                   </button>
                 </div>
-                {paymentMethod === 'Nequi / Transferencia' && (
-                  <p className="mt-2 text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-2 rounded-lg font-medium">
-                    Cuenta del comercio: <strong>{checkoutBiz.payment_info}</strong>. Adjunta el
-                    comprobante en el chat de WhatsApp que se abrirá al confirmar.
-                  </p>
+
+                {paymentMethod === 'Nequi / Bancolombia / Transferencia' && (
+                  <div className="mt-2.5 text-[11px] bg-emerald-50 text-emerald-900 border border-emerald-200 p-3 rounded-xl space-y-2">
+                    <p className="font-medium">
+                      Datos de pago del local: <strong>{checkoutBiz.payment_info}</strong>. Adjunta el
+                      comprobante en el chat de WhatsApp que se abrirá al confirmar.
+                    </p>
+                    {checkoutBiz.qr_code_url && (
+                      <div className="pt-1 flex flex-col items-center bg-white border border-emerald-200 rounded-lg p-2.5">
+                        <span className="text-[10px] font-black uppercase text-emerald-800 flex items-center gap-1 mb-1.5">
+                          <QrCode className="w-3.5 h-3.5" /> Código QR del Comercio
+                        </span>
+                        <img
+                          src={checkoutBiz.qr_code_url}
+                          alt={`Código QR de ${checkoutBiz.name}`}
+                          className="w-40 h-40 object-contain rounded-md"
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
-              {/* Aviso de Privacidad y Habeas Data (Ley 1581 de 2012) */}
               <label className="flex items-start gap-2.5 text-[11px] text-neutral-600 bg-[#F7F7F5] p-3 rounded-xl border border-neutral-200 cursor-pointer">
                 <input
                   type="checkbox"
