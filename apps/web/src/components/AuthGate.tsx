@@ -55,6 +55,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     'Nequi' | 'Bancolombia' | 'Daviplata' | 'Nequi y Bancolombia' | 'Efectivo contra entrega'
   >('Nequi');
   const [paymentAccount, setPaymentAccount] = useState('');
+  const [nequiNumber, setNequiNumber] = useState('');
+  const [bancolombiaAccount, setBancolombiaAccount] = useState('');
   const [qrFile, setQrFile] = useState<File | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -116,6 +118,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       return paymentAccount.trim()
         ? `Efectivo contra entrega (${paymentAccount.trim()})`
         : 'Efectivo contra entrega';
+    }
+    if (paymentChannel === 'Nequi y Bancolombia') {
+      const parts: string[] = [];
+      if (nequiNumber.trim()) parts.push(`Nequi: ${nequiNumber.trim()}`);
+      if (bancolombiaAccount.trim()) parts.push(`Bancolombia: ${bancolombiaAccount.trim()}`);
+      return parts.length > 0 ? parts.join(' | ') : 'Nequi y Bancolombia';
     }
     return paymentAccount.trim() ? `${paymentChannel}: ${paymentAccount.trim()}` : paymentChannel;
   }
@@ -500,7 +508,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="space-y-2.5">
                   <div>
                     <label className="block text-[11px] font-bold text-neutral-600 mb-1">
                       Cuenta donde te transfieren (Nequi, Bancolombia, etc.)
@@ -517,24 +525,56 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
                       <option value="Efectivo contra entrega">Efectivo contra entrega</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-neutral-600 mb-1">
-                      {paymentChannel === 'Efectivo contra entrega'
-                        ? 'Nota de efectivo (opcional)'
-                        : 'Aquí va tu número de cuenta o celular'}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={
-                        paymentChannel === 'Efectivo contra entrega'
-                          ? 'Ej: Llevamos cambio'
-                          : 'Ej: Nequi 3001234567 / Ahorros 012-345'
-                      }
-                      value={paymentAccount}
-                      onChange={(e) => setPaymentAccount(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
-                    />
-                  </div>
+
+                  {paymentChannel === 'Nequi y Bancolombia' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                          Aquí va tu número de Nequi
+                        </label>
+                        <input
+                          type="tel"
+                          placeholder="Ej: 3001234567"
+                          value={nequiNumber}
+                          onChange={(e) => setNequiNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                          Aquí va tu cuenta Bancolombia
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ej: Ahorros 123-456789-00"
+                          value={bancolombiaAccount}
+                          onChange={(e) => setBancolombiaAccount(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-600 mb-1">
+                        {paymentChannel === 'Efectivo contra entrega'
+                          ? 'Nota de efectivo (opcional)'
+                          : `Aquí va tu número / cuenta de ${paymentChannel}`}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={
+                          paymentChannel === 'Efectivo contra entrega'
+                            ? 'Ej: Llevamos cambio de $50.000'
+                            : paymentChannel === 'Bancolombia'
+                            ? 'Ej: Ahorros 123-456789-00'
+                            : 'Ej: 3001234567'
+                        }
+                        value={paymentAccount}
+                        onChange={(e) => setPaymentAccount(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-[#F7F7F5] border border-dashed border-neutral-300 rounded-xl p-3">
