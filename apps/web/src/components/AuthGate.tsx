@@ -33,6 +33,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [hasBusiness, setHasBusiness] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [guestMode, setGuestMode] = useState(false);
 
   const [mode, setMode] = useState<'login' | 'register'>('register');
   const [role, setRole] = useState<'customer' | 'merchant'>('customer');
@@ -88,6 +89,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem("evonuevo_guest") === "1") {
+        setGuestMode(true);
+      }
+    } catch {}
     supabase.auth.getSession().then(({ data }) => {
       syncUserState(data.session?.user ?? null);
     });
@@ -237,8 +243,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // SI NO HAY SESIÓN: Pantalla Obligatoria de Registro / Login
-  if (!user) {
+  // SI NO HAY SESIÓN Y NO ES INVITADO: Pantalla de Registro / Login + Botón Invitado
+  if (!user && !guestMode) {
     return (
       <main className="min-h-screen bg-[#F7F7F5] text-[#111111] flex items-center justify-center p-4 py-10">
         <div className="max-w-xl w-full bg-white border border-neutral-200 rounded-2xl shadow-xl overflow-hidden">
@@ -630,9 +636,59 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
                   : 'Registrar mi Local y Entrar'}
               </span>
             </button>
+
+            <div className="pt-2 border-t border-neutral-200 text-center space-y-2">
+              <p className="text-[11px] text-neutral-500">
+                ¿Solo quieres mirar las tiendas y probar la app sin crear cuenta todavía?
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    window.sessionStorage.setItem("evonuevo_guest", "1");
+                  } catch {}
+                  setGuestMode(true);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl border border-neutral-300 bg-[#F7F7F5] hover:bg-[#111111] hover:text-white text-xs font-extrabold transition-colors cursor-pointer"
+              >
+                👀 Explorar como Invitado (Sin Registro)
+              </button>
+            </div>
           </form>
         </div>
       </main>
+    );
+  }
+
+  if (!user && guestMode) {
+    return (
+      <>
+        <div className="bg-[#111111] text-white text-xs border-b border-neutral-800">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-400 text-[#111111]">
+                Modo Invitado
+              </span>
+              <span className="text-neutral-300">
+                Explorando tiendas y productos de EvoNuevo
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  window.sessionStorage.removeItem("evonuevo_guest");
+                } catch {}
+                setGuestMode(false);
+              }}
+              className="font-extrabold text-amber-300 hover:text-white underline cursor-pointer"
+            >
+              Crear Cuenta / Iniciar Sesión
+            </button>
+          </div>
+        </div>
+        {children}
+      </>
     );
   }
 
