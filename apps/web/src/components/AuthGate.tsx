@@ -232,7 +232,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (checking) {
     return (
       <div className="min-h-screen bg-[#F7F7F5] flex items-center justify-center p-6 font-bold text-sm text-[#111111]">
-        Cargando Comercio Local Pueblo Nuevo...
+        Cargando EvoNuevo...
       </div>
     );
   }
@@ -251,7 +251,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
                 <span className="p5-slash-badge bg-[#E60012] text-white text-[10px] font-black uppercase px-2.5 py-0.5">
                   Pueblo Nuevo, Córdoba
                 </span>
-                <h1 className="text-xl sm:text-2xl font-black mt-1">Comercio Local y Domicilios</h1>
+                <h1 className="text-xl sm:text-2xl font-black mt-1">EvoNuevo • Domicilios y Comercio</h1>
               </div>
             </div>
             <p className="text-xs text-neutral-300 mt-3 leading-relaxed">
@@ -609,7 +609,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
                   <strong className="text-[#111111] inline-flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" /> Habeas Data (Ley 1581):
                   </strong>{' '}
-                  Autorizo el uso de mis datos personales únicamente para gestionar pedidos y domicilios dentro de Comercio Local Pueblo Nuevo.
+                  Autorizo el uso de mis datos personales únicamente para gestionar pedidos y domicilios dentro de EvoNuevo.
                 </span>
               </label>
             )}

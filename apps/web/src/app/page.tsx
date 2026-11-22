@@ -40,7 +40,7 @@ export default async function HomePage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="font-black text-lg tracking-tight">Comercio Local</h1>
+                    <h1 className="font-black text-lg tracking-tight">EvoNuevo</h1>
                     <span className="p5-slash-badge text-[10px] font-extrabold uppercase tracking-wider bg-[#E60012] text-white px-2.5 py-0.5">
                       En Vivo
                     </span>
@@ -95,7 +95,7 @@ export default async function HomePage() {
                 <Scale className="w-4 h-4 text-[#E60012]" /> Intermediación Transparente
               </p>
               <p className="text-[11px] leading-relaxed">
-                Comercio Local conecta vecinos y emprendimientos. La preparación, precios finales, facturación y entrega corresponden directamente a cada comercio registrado.
+                EvoNuevo conecta vecinos y emprendimientos. La preparación, precios finales, facturación y entrega corresponden directamente a cada comercio registrado.
               </p>
             </div>
             <div className="space-y-1">
@@ -108,7 +108,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-400">
-            <span>© 2026 Comercio Local • Pueblo Nuevo, Córdoba</span>
+            <span>© 2026 EvoNuevo • Pueblo Nuevo, Córdoba</span>
             <span>Plataforma multi-comercio con inventario en tiempo real</span>
           </div>
         </footer>
