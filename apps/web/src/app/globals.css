@@ -6,11 +6,39 @@
   --crimson: #e60012;
 }
 
+html {
+  transition: background-color 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              color 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 body {
   background-color: var(--bg-paper);
   color: var(--ink);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              color 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Transición suave y "soft" en contenedores, tarjetas, inputs y botones */
+main,
+header,
+footer,
+section,
+article,
+aside,
+.p5-store-card,
+.p5-card,
+.p5-pill-btn,
+input,
+select,
+textarea,
+button {
+  transition: background-color 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+              color 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Corte diagonal característico estilo Persona 5 UI */
@@ -20,7 +48,6 @@ body {
 
 .p5-pill-btn {
   clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%);
-  transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
 .p5-pill-btn:hover {
@@ -37,7 +64,6 @@ body {
   background: #ffffff;
   border: 1px solid rgba(17, 17, 17, 0.12);
   border-radius: 1rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .p5-store-card::before {
@@ -48,7 +74,7 @@ body {
   width: 4px;
   height: 0%;
   background: var(--crimson);
-  transition: height 0.18s ease;
+  transition: height 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   border-top-left-radius: 1rem;
   border-bottom-left-radius: 1rem;
 }
@@ -62,7 +88,6 @@ body {
   height: 100%;
 }
 
-/* Entrada ligera sin bloquear opacidad inicial por mucho tiempo */
 @keyframes phantomEntrance {
   0% {
     opacity: 0;
@@ -75,7 +100,7 @@ body {
 }
 
 .animate-phantom {
-  animation: phantomEntrance 0.25s ease-out both;
+  animation: phantomEntrance 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes modalPop {
@@ -90,184 +115,162 @@ body {
 }
 
 .animate-modal-pop {
-  animation: modalPop 0.2s ease-out both;
+  animation: modalPop 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* =========================================================
-   MODO OSCURO COMPLETO (PHANTOM NIGHT)
+   MODO OSCURO COMPLETO Y SUAVE (PHANTOM NIGHT)
    ========================================================= */
+html.dark,
 html.dark body,
 html.dark main {
-  background-color: #0b0b0e !important;
-  color: #f4f4f6 !important;
+  background-color: #0b0b0e;
+  color: #f4f4f6;
 }
 
 html.dark header {
-  background-color: rgba(18, 18, 22, 0.96) !important;
-  border-color: #27272f !important;
+  background-color: #121216;
+  border-color: #262630;
 }
 
+html.dark footer > div {
+  background-color: #141419;
+  border-color: #262630;
+}
+
+/* Cuadros blancos (buscador, tarjetas, secciones y modales) */
+html.dark .bg-white,
 html.dark .p5-store-card,
 html.dark .p5-card,
 html.dark section.bg-white {
-  background-color: #141418 !important;
-  border-color: #2a2a34 !important;
-  color: #f4f4f6 !important;
+  background-color: #15151b;
+  border-color: #282834;
+  color: #f4f4f6;
 }
 
 html.dark .p5-store-card:hover,
 html.dark .p5-card:hover {
-  border-color: #e60012 !important;
-  box-shadow: 0 10px 24px -10px rgba(230, 0, 18, 0.16) !important;
+  border-color: #e60012;
+  box-shadow: 0 10px 24px -10px rgba(230, 0, 18, 0.16);
 }
 
-/* Textos claros de alto contraste en modo oscuro */
-html.dark h1,
-html.dark h2,
-html.dark h3,
-html.dark p.font-bold,
-html.dark p.font-black,
-html.dark span.font-black,
-html.dark td p.font-bold {
-  color: #ffffff !important;
-}
-
-html.dark p,
-html.dark span.text-neutral-600,
-html.dark span.text-neutral-500,
-html.dark div.text-neutral-600 {
-  color: #a1a1aa !important;
-}
-
-/* Mantener contraste en badges de estado */
-html.dark span.bg-\[\#E60012\],
-html.dark .p5-slash-badge.bg-\[\#E60012\] {
-  color: #ffffff !important;
-}
-
-html.dark span.bg-emerald-500\/15 {
-  background-color: rgba(16, 185, 129, 0.2) !important;
-  color: #34d399 !important;
-}
-
-html.dark span.bg-\[\#E60012\]\/10 {
-  background-color: rgba(230, 0, 18, 0.2) !important;
-  color: #ff4d5a !important;
-}
-
-/* Filas de productos, inputs y tablas en modo oscuro */
+/* Cajas internas gris claro (#F7F7F5) */
+html.dark .bg-\[\#F7F7F5\],
+html.dark div.bg-\[\#F7F7F5\],
 html.dark li,
 html.dark input,
-html.dark select {
-  background-color: #1d1d24 !important;
-  border-color: #2e2e38 !important;
-  color: #ffffff !important;
+html.dark select,
+html.dark textarea {
+  background-color: #1c1c24;
+  border-color: #2e2e3b;
+  color: #f4f4f6;
 }
 
 html.dark li:hover,
 html.dark tbody tr:hover {
-  background-color: #24242d !important;
+  background-color: #22222c;
 }
 
 html.dark tbody tr {
-  border-color: #24242d !important;
+  border-color: #24242f;
 }
 
-/* Corrección de contraste para botones y modales en Modo Oscuro */
+/* Botones neutros y badges */
+html.dark .bg-neutral-100,
+html.dark a.bg-neutral-100 {
+  background-color: #24242e;
+  color: #f4f4f6;
+  border-color: #353542;
+}
+
+html.dark a.bg-neutral-100:hover {
+  background-color: #e60012;
+  color: #ffffff;
+}
+
 html.dark button.bg-white {
-  background-color: #1f1f27 !important;
-  border-color: #383844 !important;
-  color: #ffffff !important;
+  background-color: #1e1e26;
+  border-color: #343442;
+  color: #ffffff;
 }
 
 html.dark button.bg-white:hover {
-  background-color: #e60012 !important;
-  border-color: #e60012 !important;
-  color: #ffffff !important;
+  background-color: #e60012;
+  border-color: #e60012;
+  color: #ffffff;
 }
 
-html.dark div.bg-\[\#F7F7F5\] {
-  background-color: #18181f !important;
-  border-color: #2c2c36 !important;
-}
-
-/* =========================================================
-   CORRECCIÓN TOTAL DE CONTRASTE EN MODO OSCURO (PRECIOS Y TEXTOS)
-   ========================================================= */
+/* Tipografía de alto contraste en oscuro */
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
 html.dark .text-\[\#111111\],
-html.dark span.text-\[\#111111\],
-html.dark p.text-\[\#111111\],
 html.dark td,
 html.dark th {
-  color: #ffffff !important;
+  color: #f4f4f6;
 }
 
 html.dark .text-neutral-800,
 html.dark .text-neutral-700 {
-  color: #e4e4e7 !important;
+  color: #d4d4d8;
 }
 
 html.dark .text-neutral-600,
 html.dark .text-neutral-500,
 html.dark .text-neutral-400 {
-  color: #a1a1aa !important;
+  color: #a1a1aa;
 }
 
-/* Badges de categoría y botones secundarios en modo oscuro */
-html.dark .bg-neutral-100,
-html.dark span.bg-neutral-100,
-html.dark a.bg-neutral-100 {
-  background-color: #262630 !important;
-  color: #f4f4f6 !important;
-  border-color: #3a3a48 !important;
+/* Alertas y estados en modo oscuro para evitar parches claros */
+html.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.14);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
 }
 
-html.dark a.bg-neutral-100:hover {
-  background-color: #e60012 !important;
-  color: #ffffff !important;
+html.dark .text-emerald-900,
+html.dark .text-emerald-800,
+html.dark .text-emerald-700 {
+  color: #34d399;
 }
 
-/* Modal de Checkout y cajas internas en modo oscuro */
-html.dark .bg-white {
-  background-color: #16161c !important;
-  border-color: #2e2e3a !important;
-  color: #ffffff !important;
+html.dark span.bg-emerald-500\/15,
+html.dark span.bg-emerald-500\/20,
+html.dark button.bg-emerald-500\/20 {
+  background-color: rgba(16, 185, 129, 0.22);
+  color: #34d399;
 }
 
-html.dark .border-neutral-200,
-html.dark .border-neutral-100 {
-  border-color: #2a2a35 !important;
-}
-
-/* Etiquetas de ganancia y totales en verde/rojo brillante */
-html.dark .text-emerald-700,
-html.dark .text-emerald-800 {
-  color: #34d399 !important;
-}
-
-html.dark .text-\[\#E60012\] {
-  color: #ff3b4b !important;
-}
-
-/* Contraste nítido en badges de estado y botones de pedidos en Modo Oscuro */
-html.dark button.bg-emerald-500\/20,
-html.dark span.bg-emerald-500\/20 {
-  background-color: rgba(16, 185, 129, 0.25) !important;
-  color: #34d399 !important;
-  border: 1px solid rgba(52, 211, 153, 0.4) !important;
+html.dark span.bg-\[\#E60012\]\/10 {
+  background-color: rgba(230, 0, 18, 0.2);
+  color: #ff5c69;
 }
 
 html.dark span.bg-amber-400\/30 {
-  background-color: rgba(251, 191, 36, 0.25) !important;
-  color: #fcd34d !important;
+  background-color: rgba(251, 191, 36, 0.22);
+  color: #fcd34d;
+}
+
+html.dark .text-\[\#E60012\] {
+  color: #ff4757;
 }
 
 html.dark button.bg-neutral-200 {
-  background-color: #272732 !important;
-  color: #e4e4e7 !important;
+  background-color: #272732;
+  color: #e4e4e7;
 }
 
 html.dark button.bg-neutral-200:hover {
-  background-color: #e60012 !important;
-  color: #ffffff !important;
+  background-color: #e60012;
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
