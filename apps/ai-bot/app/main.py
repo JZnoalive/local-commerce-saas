@@ -24,9 +24,28 @@ app.add_middleware(
 )
 
 # 1. Conexión a Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_URL = (
+    os.getenv("SUPABASE_URL")
+    or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+    or ""
+).strip()
+SUPABASE_KEY = (
+    os.getenv("SUPABASE_KEY")
+    or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    or os.getenv("SUPABASE_ANON_KEY")
+    or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    or ""
+).strip()
+
+supabase: Optional[Client] = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as exc:
+        print(f"[WARN] No se pudo inicializar Supabase: {exc}")
+        supabase = None
+else:
+    print("[WARN] SUPABASE_URL o SUPABASE_KEY no configuradas; iniciando en modo degradado.")
 
 # 2. Clientes de IA (Gemini, Claude, Grok xAI)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
