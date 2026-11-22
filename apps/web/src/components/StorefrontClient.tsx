@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -42,6 +42,8 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
   // Carrito por negocio: { [businessId]: { [productId]: qty } }
   const [carts, setCarts] = useState<Record<string, Record<string, number>>>({});
 
+  const hasHydratedCart = useRef(false);
+
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("pueblonuevo_carts_v1");
@@ -53,10 +55,13 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
       }
     } catch {
       // Ignorar errores de acceso a localStorage
+    } finally {
+      hasHydratedCart.current = true;
     }
   }, []);
 
   useEffect(() => {
+    if (!hasHydratedCart.current) return;
     try {
       window.localStorage.setItem("pueblonuevo_carts_v1", JSON.stringify(carts));
     } catch {
@@ -116,6 +121,7 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
 
     setSubmitting(true);
 
+    if (submitting) return;
     const cleanName = customerName.trim();
     const cleanPhone = customerPhone.replace(/\D/g, "");
     const cleanAddress = deliveryAddress.trim();
@@ -425,7 +431,7 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
                   required
                   placeholder="Tu número de celular / WhatsApp"
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   className="w-full px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-200 rounded-xl focus:outline-none focus:border-[#111111]"
                 />
                 <input
