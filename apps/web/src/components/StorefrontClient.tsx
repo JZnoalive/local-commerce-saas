@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
   Clock,
@@ -40,6 +41,28 @@ function checkIsOpen(business: any, hours: any[]) {
 export default function StorefrontClient({ businesses }: { businesses: any[] }) {
   // Carrito por negocio: { [businessId]: { [productId]: qty } }
   const [carts, setCarts] = useState<Record<string, Record<string, number>>>({});
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("pueblonuevo_carts_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          setCarts(parsed);
+        }
+      }
+    } catch {
+      // Ignorar errores de acceso a localStorage
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("pueblonuevo_carts_v1", JSON.stringify(carts));
+    } catch {
+      // Ignorar errores de cuota o modo privado
+    }
+  }, [carts]);
   const [checkoutBiz, setCheckoutBiz] = useState<any | null>(null);
 
   // Datos del cliente en el checkout
@@ -92,6 +115,26 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
     if (summary.items.length === 0) return;
 
     setSubmitting(true);
+
+    const cleanName = customerName.trim();
+    const cleanPhone = customerPhone.replace(/\D/g, "");
+    const cleanAddress = deliveryAddress.trim();
+
+    if (!cleanName) {
+      setSubmitting(false);
+      alert("Por favor escribe tu nombre para el pedido.");
+      return;
+    }
+    if (cleanPhone.length < 10) {
+      setSubmitting(false);
+      alert("Por favor ingresa un número de teléfono o WhatsApp válido (10 dígitos).");
+      return;
+    }
+    if (!cleanAddress) {
+      setSubmitting(false);
+      alert("Por favor ingresa la dirección de entrega en Pueblo Nuevo.");
+      return;
+    }
 
     // 1. Registrar el pedido en Supabase verificando errores
     const { data: insertedOrder, error: orderError } = await supabase
