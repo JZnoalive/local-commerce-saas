@@ -1,26 +1,259 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg-paper: #f7f7f5;
+  --ink: #111111;
+  --crimson: #e60012;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-paper);
+  color: var(--ink);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Corte diagonal característico estilo Persona 5 UI */
+.p5-slash-badge {
+  clip-path: polygon(6% 0%, 100% 0%, 94% 100%, 0% 100%);
+}
+
+.p5-pill-btn {
+  clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.25s ease,
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.p5-pill-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.p5-pill-btn:active {
+  transform: scale(0.98);
+}
+
+/* Tarjeta minimalista con acento carmesí dinámico */
+.p5-store-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease,
+              background-color 0.3s ease;
+}
+
+.p5-store-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 0%;
+  background: var(--crimson);
+  transition: height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  border-top-left-radius: 1rem;
+  border-bottom-left-radius: 1rem;
+}
+
+.p5-store-card:hover {
+  transform: translateY(-5px);
+  border-color: #111111;
+  box-shadow: 0 18px 35px -12px rgba(17, 17, 17, 0.14);
+}
+
+.p5-store-card:hover::before {
+  height: 100%;
+}
+
+/* Animaciones de entrada fluidas */
+@keyframes phantomEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-phantom {
+  opacity: 0;
+  animation: phantomEntrance 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalPop {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.94);
+    transform-origin: bottom right;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transform-origin: bottom right;
+  }
+}
+
+.animate-modal-pop {
+  animation: modalPop 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* =========================================================
+   MODO OSCURO COMPLETO (PHANTOM NIGHT)
+   ========================================================= */
+html.dark body,
+html.dark main {
+  background-color: #0b0b0e !important;
+  color: #f4f4f6 !important;
+}
+
+html.dark header {
+  background-color: rgba(18, 18, 22, 0.92) !important;
+  border-color: #27272f !important;
+}
+
+html.dark .p5-store-card,
+html.dark .p5-card,
+html.dark section.bg-white {
+  background-color: #141418 !important;
+  border-color: #2a2a34 !important;
+  color: #f4f4f6 !important;
+}
+
+html.dark .p5-store-card:hover,
+html.dark .p5-card:hover {
+  border-color: #e60012 !important;
+  box-shadow: 0 18px 35px -12px rgba(230, 0, 18, 0.18) !important;
+}
+
+/* Textos claros de alto contraste en modo oscuro */
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark p.font-bold,
+html.dark p.font-black,
+html.dark span.font-black,
+html.dark td p.font-bold {
+  color: #ffffff !important;
+}
+
+html.dark p,
+html.dark span.text-neutral-600,
+html.dark span.text-neutral-500,
+html.dark div.text-neutral-600 {
+  color: #a1a1aa !important;
+}
+
+/* Mantener contraste en badges de estado */
+html.dark span.bg-\[\#E60012\],
+html.dark .p5-slash-badge.bg-\[\#E60012\] {
+  color: #ffffff !important;
+}
+
+html.dark span.bg-emerald-500\/15 {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  color: #34d399 !important;
+}
+
+html.dark span.bg-\[\#E60012\]\/10 {
+  background-color: rgba(230, 0, 18, 0.2) !important;
+  color: #ff4d5a !important;
+}
+
+/* Filas de productos, inputs y tablas en modo oscuro */
+html.dark li,
+html.dark input,
+html.dark select {
+  background-color: #1d1d24 !important;
+  border-color: #2e2e38 !important;
+  color: #ffffff !important;
+}
+
+html.dark li:hover,
+html.dark tbody tr:hover {
+  background-color: #24242d !important;
+}
+
+html.dark tbody tr {
+  border-color: #24242d !important;
+}
+
+/* Corrección de contraste para botones y modales en Modo Oscuro */
+html.dark button.bg-white {
+  background-color: #1f1f27 !important;
+  border-color: #383844 !important;
+  color: #ffffff !important;
+}
+
+html.dark button.bg-white:hover {
+  background-color: #e60012 !important;
+  border-color: #e60012 !important;
+  color: #ffffff !important;
+}
+
+html.dark div.bg-\[\#F7F7F5\] {
+  background-color: #18181f !important;
+  border-color: #2c2c36 !important;
+}
+
+/* =========================================================
+   CORRECCIÓN TOTAL DE CONTRASTE EN MODO OSCURO (PRECIOS Y TEXTOS)
+   ========================================================= */
+html.dark .text-\[\#111111\],
+html.dark span.text-\[\#111111\],
+html.dark p.text-\[\#111111\],
+html.dark td,
+html.dark th {
+  color: #ffffff !important;
+}
+
+html.dark .text-neutral-800,
+html.dark .text-neutral-700 {
+  color: #e4e4e7 !important;
+}
+
+html.dark .text-neutral-600,
+html.dark .text-neutral-500,
+html.dark .text-neutral-400 {
+  color: #a1a1aa !important;
+}
+
+/* Badges de categoría y botones secundarios en modo oscuro */
+html.dark .bg-neutral-100,
+html.dark span.bg-neutral-100,
+html.dark a.bg-neutral-100 {
+  background-color: #262630 !important;
+  color: #f4f4f6 !important;
+  border-color: #3a3a48 !important;
+}
+
+html.dark a.bg-neutral-100:hover {
+  background-color: #e60012 !important;
+  color: #ffffff !important;
+}
+
+/* Modal de Checkout y cajas internas en modo oscuro */
+html.dark .bg-white {
+  background-color: #16161c !important;
+  border-color: #2e2e3a !important;
+  color: #ffffff !important;
+}
+
+html.dark .border-neutral-200,
+html.dark .border-neutral-100 {
+  border-color: #2a2a35 !important;
+}
+
+/* Etiquetas de ganancia y totales en verde/rojo brillante */
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 {
+  color: #34d399 !important;
+}
+
+html.dark .text-\[\#E60012\] {
+  color: #ff3b4b !important;
 }
