@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import AiChatWidget from '@/components/AiChatWidget';
 import StorefrontClient from '@/components/StorefrontClient';
 import Link from 'next/link';
-import { Store, LayoutDashboard, ShieldCheck, Sparkles, Scale } from 'lucide-react';
+import { Store, LayoutDashboard, User, ShieldCheck, Sparkles, Scale } from 'lucide-react';
 
 export const revalidate = 15;
 
@@ -27,7 +27,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-[#F7F7F5] text-[#111111] pb-24 flex flex-col justify-between">
       <div>
         <header className="bg-white/95 border-b border-neutral-200/80 sticky top-0 z-40">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3.5">
               <div className="bg-[#111111] text-white p-2.5 rounded-xl relative overflow-hidden">
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#E60012]" />
@@ -46,13 +46,22 @@ export default async function HomePage() {
               </div>
             </div>
 
-            <Link
-              href="/admin"
-              className="p5-pill-btn flex items-center gap-2 bg-[#111111] hover:bg-[#E60012] text-white px-4 py-2 text-xs font-bold tracking-wide"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Soy Comerciante / Ingresar</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin?role=customer"
+                className="p5-pill-btn flex items-center gap-1.5 bg-neutral-100 hover:bg-neutral-200 text-[#111111] px-3.5 py-2 text-xs font-extrabold tracking-wide"
+              >
+                <User className="w-3.5 h-3.5 text-[#E60012]" />
+                <span>Soy Cliente</span>
+              </Link>
+              <Link
+                href="/admin"
+                className="p5-pill-btn flex items-center gap-1.5 bg-[#111111] hover:bg-[#E60012] text-white px-3.5 py-2 text-xs font-extrabold tracking-wide"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>Soy Comerciante</span>
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -69,12 +78,21 @@ export default async function HomePage() {
                 Arma tu pedido con disponibilidad real o pregúntale directamente al asistente.
               </p>
             </div>
-            <Link
-              href="/admin?mode=register"
-              className="text-xs font-extrabold text-[#E60012] hover:underline"
-            >
-              ¿Tienes un mini-negocio en Pueblo Nuevo? Regístralo gratis →
-            </Link>
+            <div className="flex flex-wrap gap-3 text-xs font-extrabold">
+              <Link
+                href="/admin?role=customer"
+                className="text-neutral-700 hover:text-[#111111] underline"
+              >
+                Regístrate como cliente
+              </Link>
+              <span className="text-neutral-300">•</span>
+              <Link
+                href="/admin?mode=register"
+                className="text-[#E60012] hover:underline"
+              >
+                Registra tu negocio gratis →
+              </Link>
+            </div>
           </div>
 
           <StorefrontClient businesses={businesses} />
