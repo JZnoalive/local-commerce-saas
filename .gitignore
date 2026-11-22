@@ -13,3 +13,4 @@ apps/ai-bot/.env
 apps/web/.env*
 __pycache__/
 *.pyc
+reports/
