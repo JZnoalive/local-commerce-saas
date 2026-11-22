@@ -45,6 +45,7 @@ export default function AdminDashboard() {
   const [sessionUser, setSessionUser] = useState<any | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
+  const [businessDemoMode, setBusinessDemoMode] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [registerRole, setRegisterRole] = useState<'customer' | 'merchant'>('merchant');
 
@@ -111,6 +112,105 @@ export default function AdminDashboard() {
         setAuthMode('register');
         setRegisterRole('customer');
       }
+    }
+
+    let isDemo = false;
+    try {
+      isDemo = window.sessionStorage.getItem("evonuevo_business_demo") === "1";
+    } catch {}
+    if (isDemo) {
+      setBusinessDemoMode(true);
+      const demoBiz = {
+        id: "demo-biz-1",
+        name: "Smash & Parrilla El Parque",
+        slug: "smash-parrilla-pueblo-nuevo",
+        category: "Comidas Rápidas y Postres",
+        phone_whatsapp: "573001112233",
+        address: "Frente al Parque Principal, Pueblo Nuevo",
+        delivery_fee: 3000,
+        payment_info: "Nequi: 3001112233 | Bancolombia: Ahorros 412-889900-11",
+        logo_url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80",
+        instagram_url: "@smashparrilla_pn",
+        facebook_url: "smashparrillapueblonuevo",
+        tiktok_url: "@smashparrilla",
+        is_manually_paused: false,
+      };
+      setSessionUser({ email: "demo.negocio@evonuevo.local" });
+      setUserProfile({ full_name: "Administrador Demo (Local)" });
+      setBusinesses([demoBiz]);
+      setSelectedBizId(demoBiz.id);
+      setProducts([
+        {
+          id: "demo-p-1",
+          business_id: demoBiz.id,
+          name: "Doble Smash Bacon Burger",
+          description: "Doble carne artesanal, queso cheddar, tocineta y salsa de la casa",
+          price: 19000,
+          cost_price: 9500,
+          stock_quantity: 24,
+          min_stock: 8,
+        },
+        {
+          id: "demo-p-2",
+          business_id: demoBiz.id,
+          name: "Salchipapa Suprema Costeña",
+          description: "Papa criolla y francesa, salchicha ranchera, pollo y queso costeño",
+          price: 22000,
+          cost_price: 11000,
+          stock_quantity: 4,
+          min_stock: 8,
+        },
+        {
+          id: "demo-p-3",
+          business_id: demoBiz.id,
+          name: "Limonada de Coco Frappé",
+          description: "Refrescante con crema de coco y hielo granizado",
+          price: 9500,
+          cost_price: 3800,
+          stock_quantity: 18,
+          min_stock: 6,
+        },
+        {
+          id: "demo-p-4",
+          business_id: demoBiz.id,
+          name: "Combo Alitas BBQ x6",
+          description: "Seis alitas glaseadas en salsa BBQ artesanal con papas",
+          price: 17500,
+          cost_price: 8200,
+          stock_quantity: 3,
+          min_stock: 6,
+        },
+      ]);
+      setOrders([
+        {
+          id: "ord-demo-101",
+          business_id: demoBiz.id,
+          customer_name: "Camila Rodríguez",
+          customer_phone: "3005551234",
+          delivery_address: "Barrio El Centro, Calle 11 # 6-20",
+          payment_method: "Nequi / Bancolombia / Transferencia",
+          items: [{ id: "demo-p-1", name: "Doble Smash Bacon Burger (Extra queso cheddar)", qty: 2, price: 22000 }],
+          subtotal: 44000,
+          delivery_fee: 3000,
+          total: 47000,
+          status: "pendiente",
+        },
+        {
+          id: "ord-demo-102",
+          business_id: demoBiz.id,
+          customer_name: "Andrés Martínez",
+          customer_phone: "3128889900",
+          delivery_address: "Barrio Las Mercedes, Cra 8 # 14-10",
+          payment_method: "Efectivo contra entrega",
+          items: [{ id: "demo-p-2", name: "Salchipapa Suprema Costeña", qty: 1, price: 22000 }],
+          subtotal: 22000,
+          delivery_fee: 3000,
+          total: 25000,
+          status: "entregado",
+        },
+      ]);
+      setAuthChecking(false);
+      return;
     }
 
     supabase.auth.getSession().then(async ({ data }) => {
@@ -358,6 +458,11 @@ export default function AdminDashboard() {
   }
 
   async function handleLogout() {
+    try {
+      window.sessionStorage.removeItem("evonuevo_business_demo");
+      window.sessionStorage.removeItem("evonuevo_guest");
+    } catch {}
+    setBusinessDemoMode(false);
     await supabase.auth.signOut();
     setSessionUser(null);
   }

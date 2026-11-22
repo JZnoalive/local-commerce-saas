@@ -653,6 +653,19 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
               >
                 👀 Explorar como Invitado (Sin Registro)
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    window.sessionStorage.setItem("evonuevo_business_demo", "1");
+                    window.sessionStorage.setItem("evonuevo_guest", "1");
+                  } catch {}
+                  window.location.href = "/admin";
+                }}
+                className="w-full py-2.5 px-4 rounded-xl border border-[#111111] bg-[#111111] hover:bg-[#E60012] text-white text-xs font-extrabold transition-colors cursor-pointer"
+              >
+                🏪 Invitado de Negocio (Ver Panel y Gráficos)
+              </button>
             </div>
           </form>
         </div>
