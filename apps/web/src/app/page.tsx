@@ -4,10 +4,21 @@ import StorefrontClient from '@/components/StorefrontClient';
 import Link from 'next/link';
 import { Store, LayoutDashboard } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function HomePage() {
-  const { data: businesses } = await supabase
+  let { data: businesses, error } = await supabase
     .from('businesses')
     .select('*, business_hours(*), products(*)');
+
+  if (error) {
+    console.error('[HomePage] Error cargando businesses con relaciones:', error.message);
+    const fallback = await supabase
+      .from('businesses')
+      .select('*, products(*)');
+    businesses = fallback.data;
+  }
 
   return (
     <main className="min-h-screen bg-[#F7F7F5] text-[#111111] pb-28">
