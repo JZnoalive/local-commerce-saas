@@ -8,20 +8,23 @@ import { Store, LayoutDashboard, ShieldCheck, Sparkles, Scale } from 'lucide-rea
 export const revalidate = 15;
 
 export default async function HomePage() {
-  const [bizRes, prodRes, hoursRes] = await Promise.all([
+  const [bizRes, prodRes, hoursRes, revRes] = await Promise.all([
     supabase.from('businesses').select('*').order('name', { ascending: true }),
     supabase.from('products').select('*'),
     supabase.from('business_hours').select('*'),
+    supabase.from('reviews').select('*').order('created_at', { ascending: false }),
   ]);
 
   const rawBusinesses = bizRes.data || [];
   const allProducts = prodRes.data || [];
   const allHours = hoursRes.data || [];
+  const allReviews = revRes.data || [];
 
   const businesses = rawBusinesses.map((biz: any) => ({
     ...biz,
     products: allProducts.filter((p: any) => p.business_id === biz.id),
     business_hours: allHours.filter((h: any) => h.business_id === biz.id),
+    reviews: allReviews.filter((r: any) => r.business_id === biz.id),
   }));
 
   return (
@@ -68,7 +71,7 @@ export default async function HomePage() {
                   Tiendas y Emprendimientos
                 </h2>
                 <p className="text-sm text-neutral-500 mt-1">
-                  Arma tu pedido con disponibilidad real o pregúntale directamente al asistente.
+                  Personaliza tu pedido, revisa valoraciones reales o pregúntale al asistente.
                 </p>
               </div>
             </div>
@@ -77,7 +80,6 @@ export default async function HomePage() {
           </section>
         </div>
 
-        {/* Pie de página Ético, Legal y Habeas Data */}
         <footer className="max-w-5xl mx-auto w-full px-4 sm:px-6 pt-8 pb-6 mt-12 border-t border-neutral-200 text-xs text-neutral-500 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border border-neutral-200 rounded-2xl p-4">
             <div className="space-y-1">

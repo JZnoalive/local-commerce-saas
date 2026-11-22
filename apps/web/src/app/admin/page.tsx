@@ -87,6 +87,13 @@ export default function AdminDashboard() {
   const [stock, setStock] = useState('');
   const [minStock, setMinStock] = useState('5');
   const [saving, setSaving] = useState(false);
+  const [prodImageFile, setProdImageFile] = useState<File | null>(null);
+  const [prodCustomOptionsText, setProdCustomOptionsText] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [igUrl, setIgUrl] = useState('');
+  const [fbUrl, setFbUrl] = useState('');
+  const [ttUrl, setTtUrl] = useState('');
+  const [savingBrand, setSavingBrand] = useState(false);
 
   // IA y Gráficos
   const [aiAdvice, setAiAdvice] = useState('');
@@ -392,6 +399,12 @@ export default function AdminDashboard() {
   }
 
   const currentBiz = businesses.find((b) => b.id === selectedBizId);
+  useEffect(() => {
+    if (!currentBiz) return;
+    setIgUrl(currentBiz.instagram_url || '');
+    setFbUrl(currentBiz.facebook_url || '');
+    setTtUrl(currentBiz.tiktok_url || '');
+  }, [currentBiz?.id]);
 
   const totalInvestedCost = products.reduce(
     (acc, p) => acc + Number(p.cost_price || 0) * Number(p.stock_quantity || 0),
@@ -469,10 +482,54 @@ export default function AdminDashboard() {
     await fetchOrders(selectedBizId);
   }
 
+  async function uploadCatalogMedia(file: File | null, folder: string): Promise<string | null> {
+    if (!file || !selectedBizId) return null;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${selectedBizId}/${folder}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('catalog-media').upload(path, file, { upsert: true });
+    if (error) return null;
+    const { data } = supabase.storage.from('catalog-media').getPublicUrl(path);
+    return data?.publicUrl || null;
+  }
+
+  async function handleSaveBrandAndSocials(e: React.FormEvent) {
+    e.preventDefault();
+    if (!currentBiz) return;
+    setSavingBrand(true);
+    const uploadedLogo = await uploadCatalogMedia(logoFile, 'logo');
+    const updates: any = {
+      instagram_url: igUrl.trim() || null,
+      facebook_url: fbUrl.trim() || null,
+      tiktok_url: ttUrl.trim() || null,
+    };
+    if (uploadedLogo) updates.logo_url = uploadedLogo;
+
+    await supabase.from('businesses').update(updates).eq('id', currentBiz.id);
+    setBusinesses((prev) =>
+      prev.map((b) => (b.id === currentBiz.id ? { ...b, ...updates } : b))
+    );
+    setLogoFile(null);
+    setSavingBrand(false);
+    alert('Imagen de perfil y redes sociales actualizadas.');
+  }
+
   async function handleAddProduct(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedBizId || !name || !price) return;
     setSaving(true);
+
+    const uploadedProdImg = await uploadCatalogMedia(prodImageFile, 'product');
+    const parsedOptions = prodCustomOptionsText
+      .split(',')
+      .map((chunk) => chunk.trim())
+      .filter(Boolean)
+      .map((item) => {
+        const match = item.match(/^(.*?)\(\+(\d+)\)$/);
+        if (match) {
+          return { label: match[1].trim(), extraPrice: Number(match[2]) };
+        }
+        return { label: item, extraPrice: 0 };
+      });
 
     await supabase.from('products').insert({
       business_id: selectedBizId,
@@ -482,6 +539,8 @@ export default function AdminDashboard() {
       cost_price: Number(costPrice || 0),
       stock_quantity: Number(stock || 0),
       min_stock: Number(minStock || 5),
+      image_url: uploadedProdImg,
+      customization_options: parsedOptions,
       is_available: true,
     });
 
@@ -491,6 +550,8 @@ export default function AdminDashboard() {
     setCostPrice('');
     setStock('');
     setMinStock('5');
+    setProdImageFile(null);
+    setProdCustomOptionsText('');
     await fetchProducts(selectedBizId);
     setSaving(false);
   }
@@ -1407,6 +1468,64 @@ export default function AdminDashboard() {
           )}
         </section>
 
+        {/* Identidad Visual (Foto opcional) y Redes Sociales del Local */}
+        <section className="animate-phantom p5-store-card rounded-2xl p-6">
+          <h2 className="font-black text-sm uppercase tracking-wide mb-3">
+            Perfil Visual y Redes Sociales del Local (Opcional)
+          </h2>
+          <p className="text-xs text-neutral-500 mb-4">
+            Si no subes foto de perfil, tu negocio usa automáticamente un avatar estilizado con sus iniciales.
+          </p>
+          <form onSubmit={handleSaveBrandAndSocials} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            <div>
+              <label className="block text-[11px] font-bold text-neutral-600 mb-1">Foto o Logo del Local</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                className="w-full text-xs text-neutral-600 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#111111] file:text-white cursor-pointer"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-neutral-600 mb-1">Instagram (@usuario o link)</label>
+              <input
+                type="text"
+                placeholder="@milocal_pn"
+                value={igUrl}
+                onChange={(e) => setIgUrl(e.target.value)}
+                className="w-full text-xs px-3 py-2.5 bg-[#F7F7F5] border border-neutral-300 rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-neutral-600 mb-1">Facebook (página o link)</label>
+              <input
+                type="text"
+                placeholder="facebook.com/milocal"
+                value={fbUrl}
+                onChange={(e) => setFbUrl(e.target.value)}
+                className="w-full text-xs px-3 py-2.5 bg-[#F7F7F5] border border-neutral-300 rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-neutral-600 mb-1">TikTok (@usuario o link)</label>
+              <input
+                type="text"
+                placeholder="@milocal_tiktok"
+                value={ttUrl}
+                onChange={(e) => setTtUrl(e.target.value)}
+                className="w-full text-xs px-3 py-2.5 bg-[#F7F7F5] border border-neutral-300 rounded-xl"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={savingBrand}
+              className="p5-pill-btn bg-[#111111] hover:bg-[#E60012] text-white text-xs font-extrabold uppercase py-2.5 px-4 cursor-pointer"
+            >
+              {savingBrand ? 'Guardando...' : 'Guardar Perfil y Redes'}
+            </button>
+          </form>
+        </section>
+
         {/* Formulario Nuevo Producto */}
         <section className="animate-phantom p5-store-card rounded-2xl p-6">
           <h2 className="font-black text-sm uppercase tracking-wide mb-4 flex items-center gap-2">
@@ -1468,6 +1587,23 @@ export default function AdminDashboard() {
                 className="w-20 text-sm font-bold px-2.5 py-2 bg-[#F7F7F5] border border-neutral-300 rounded-xl"
               />
               <span>uds</span>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-4">
+              <input
+                type="text"
+                placeholder="Personalización / Adiciones (opcional, ej: Sin cebolla, Sin tomate, Extra queso (+3000))"
+                value={prodCustomOptionsText}
+                onChange={(e) => setProdCustomOptionsText(e.target.value)}
+                className="w-full text-xs font-medium px-3.5 py-2.5 bg-[#F7F7F5] border border-neutral-300 rounded-xl"
+              />
+            </div>
+            <div className="sm:col-span-2 lg:col-span-2 flex items-center">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setProdImageFile(e.target.files?.[0] || null)}
+                className="w-full text-xs text-neutral-600 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#111111] file:text-white cursor-pointer"
+              />
             </div>
           </form>
         </section>
