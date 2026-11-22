@@ -42,27 +42,33 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
   // Carrito por negocio: { [businessId]: { [productId]: qty } }
   const [carts, setCarts] = useState<Record<string, Record<string, number>>>({});
 
-  const hasHydratedCart = useRef(false);
+  const cartReadyRef = useRef(false);
 
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem("pueblonuevo_carts_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === "object") {
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
           setCarts(parsed);
         }
       }
     } catch {
       // Ignorar errores de acceso a localStorage
     } finally {
-      hasHydratedCart.current = true;
+      cartReadyRef.current = true;
     }
   }, []);
 
   useEffect(() => {
-    if (!hasHydratedCart.current) return;
+    if (!cartReadyRef.current) return;
     try {
+      const currentRaw = window.localStorage.getItem("pueblonuevo_carts_v1");
+      const isEmptyNext = Object.keys(carts || {}).length === 0;
+      if (isEmptyNext && currentRaw && currentRaw !== "{}") {
+        // Evitar que un montaje inicial vacío borre un carrito ya persistido
+        return;
+      }
       window.localStorage.setItem("pueblonuevo_carts_v1", JSON.stringify(carts));
     } catch {
       // Ignorar errores de cuota o modo privado
