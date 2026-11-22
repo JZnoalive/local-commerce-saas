@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 import {
   Clock,
   MapPin,
@@ -79,7 +80,7 @@ function normalizeSocialUrl(raw: string, platform: 'instagram' | 'facebook' | 't
   return `https://facebook.com/${handle}`;
 }
 
-export default function StorefrontClient({ businesses }: { businesses: any[] }) {
+export default function StorefrontClient({ businesses, singleStoreMode = false }: { businesses: any[]; singleStoreMode?: boolean }) {
   const [carts, setCarts] = useState<Record<string, CartLine[]>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
@@ -458,7 +459,7 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
           No encontramos negocios o productos con &ldquo;{searchTerm}&rdquo;.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={singleStoreMode ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
           {filteredBusinesses.map((biz: any, idx: number) => {
             const status = checkIsOpen(biz, biz.business_hours);
             const summary = getCartSummary(biz);
@@ -578,7 +579,17 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
                     )}
                   </div>
 
-                  {/* Listado de productos con foto opcional, personalización y valoración individual */}
+                  {/* En vitrina principal: vista limpia tipo Rappi; dentro de la tienda: menú completo */}
+                  {!singleStoreMode ? (
+                    <div className="mt-5 pt-4 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500">
+                      <span className="font-bold">
+                        {(biz.products || []).length} {(biz.products || []).length === 1 ? "producto disponible" : "productos disponibles"}
+                      </span>
+                      <span className="text-[11px] font-extrabold text-emerald-700">
+                        Domicilio rápido en Pueblo Nuevo
+                      </span>
+                    </div>
+                  ) : (
                   <div className="mt-5 pt-4 border-t border-neutral-100">
                     <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400 mb-3 flex items-center gap-1.5">
                       <ShoppingBag className="w-3.5 h-3.5 text-[#E60012]" /> Selecciona tus productos
@@ -669,9 +680,18 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
                       })}
                     </ul>
                   </div>
+                  )}
                 </div>
 
-                {summary.totalItems > 0 ? (
+                {!singleStoreMode ? (
+                  <Link
+                    href={`/tienda/${biz.slug}`}
+                    className="p5-pill-btn mt-6 w-full flex items-center justify-between bg-[#111111] hover:bg-[#E60012] text-white text-xs font-extrabold uppercase tracking-wider px-5 py-3.5 shadow-sm"
+                  >
+                    <span>Entrar a la tienda</span>
+                    <span>Ver menú ({(biz.products || []).length}) →</span>
+                  </Link>
+                ) : summary.totalItems > 0 ? (
                   <button
                     type="button"
                     onClick={() => openCheckoutForBusiness(biz)}
