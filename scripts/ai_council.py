@@ -38,47 +38,110 @@ def is_text_flash_model(name: str) -> bool:
     return not any(bad in n for bad in BLOCKED_KEYWORDS)
 
 
-def run_gemini(api_key: str, text_prompt: str) -> tuple[str, str]:
-    client = genai.Client(api_key=api_key)
-    candidates = ["gemini-3.8-flash", "gemini-2.5-flash"]
+def try_gemini(api_key: str, text_prompt: str) -> tuple[str, str] | None:
     try:
-        for m in client.models.list():
-            name = getattr(m, "name", "").replace("models/", "")
-            if is_text_flash_model(name) and name not in candidates:
-                candidates.append(name)
+        client = genai.Client(api_key=api_key)
+        candidates = ["gemini-3.8-flash", "gemini-2.5-flash"]
+        try:
+            for m in client.models.list():
+                name = getattr(m, "name", "").replace("models/", "")
+                if is_text_flash_model(name) and name not in candidates:
+                    candidates.append(name)
+        except Exception:
+            pass
+
+        for model_name in candidates:
+            try:
+                res = client.models.generate_content(model=model_name, contents=text_prompt)
+                if res and res.text:
+                    return model_name, res.text
+            except Exception:
+                continue
     except Exception:
         pass
+    return None
 
-    last_err = None
-    for model_name in candidates:
+
+def try_groq(api_key: str, text_prompt: str) -> tuple[str, str] | None:
+    try:
+        client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+        models_to_try = []
         try:
-            res = client.models.generate_content(model=model_name, contents=text_prompt)
-            if res and res.text:
-                return model_name, res.text
-        except Exception as e:
-            last_err = e
-            continue
-    raise RuntimeError(f"Sin cuota disponible en modelos Gemini ahora: {last_err}")
+            available = [m.id for m in client.models.list().data if getattr(m, "id", None)]
+            for preferred in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "qwen/qwen3-32b", "gemma2-9b-it"):
+                if preferred in available:
+                    models_to_try.append(preferred)
+            for mid in available:
+                if mid not in models_to_try and ("llama" in mid or "qwen" in mid or "gemma" in mid):
+                    models_to_try.append(mid)
+        except Exception:
+            models_to_try = ["llama-3.1-8b-instant"]
 
+        for model_name in models_to_try[:4]:
+            try:
+                comp = client.chat.completions.create(
+                    model=model_name,
+                    messages=[{"role": "user", "content": text_prompt}],
+                    max_tokens=800,
+                )
+                content = comp.choices[0].message.content
+                if content:
+                    return f"groq/{model_name}", content
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"[Groq error]: {e}")
+    return None
+
+
+def try_openrouter_free(api_key: str, text_prompt: str) -> tuple[str, str] | None:
+    free_models = [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "qwen/qwen-2.5-coder-32b-instruct:free",
+        "mistralai/mistral-small-3.1-24b-instruct:free",
+    ]
+    client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
+    for model_name in free_models:
+        try:
+            comp = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": text_prompt}],
+                max_tokens=800,
+            )
+            content = comp.choices[0].message.content
+            if content:
+                return f"openrouter/{model_name}", content
+        except Exception:
+            continue
+    return None
+
+
+results = []
 
 gemini_key = os.getenv("GEMINI_API_KEY")
 if gemini_key:
-    try:
-        used_model, reply = run_gemini(gemini_key, prompt)
-        print(f"\n=== REVISIÓN: {used_model.upper()} ===\n")
-        print(reply)
-    except Exception as e:
-        print(f"\n[Gemini]: {e}")
-else:
-    print("Aviso: GEMINI_API_KEY no encontrada en apps/ai-bot/.env")
+    g_res = try_gemini(gemini_key, prompt)
+    if g_res:
+        results.append(g_res)
+    else:
+        print("[Gemini] Sin cuota disponible en este momento; probando respaldo gratuito...")
 
 groq_key = os.getenv("GROQ_API_KEY")
 if groq_key:
-    groq = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
-    comp = groq.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=700,
-    )
-    print("\n=== SEGUNDA OPINIÓN: GROQ (LLAMA 3.3) ===\n")
-    print(comp.choices[0].message.content)
+    q_res = try_groq(groq_key, prompt)
+    if q_res:
+        results.append(q_res)
+
+or_key = os.getenv("OPENROUTER_API_KEY")
+if or_key and not results:
+    o_res = try_openrouter_free(or_key, prompt)
+    if o_res:
+        results.append(o_res)
+
+if not results:
+    print("No hubo respuesta de ningún proveedor configurado ahora. Revisa tus keys en apps/ai-bot/.env.")
+    sys.exit(1)
+
+for model_label, text in results:
+    print(f"\n=== REVISIÓN: {model_label.upper()} ===\n")
+    print(text)
