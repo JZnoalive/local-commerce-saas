@@ -22,6 +22,26 @@ import {
 export default function AdminDashboard() {
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [selectedBizId, setSelectedBizId] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      const savedBiz = window.localStorage.getItem('pueblonuevo_last_biz_id');
+      if (savedBiz && !selectedBizId) {
+        setSelectedBizId(savedBiz);
+      }
+    } catch {
+      // Ignorar errores de storage
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedBizId) return;
+    try {
+      window.localStorage.setItem('pueblonuevo_last_biz_id', selectedBizId);
+    } catch {
+      // Ignorar errores de storage
+    }
+  }, [selectedBizId]);
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,6 +211,7 @@ export default function AdminDashboard() {
   }
 
   async function deleteProduct(prodId: string) {
+    if (!window.confirm('¿Seguro que deseas eliminar este producto?')) return;
     await supabase.from('products').delete().eq('id', prodId);
     setProducts((prev) => prev.filter((p) => p.id !== prodId));
   }

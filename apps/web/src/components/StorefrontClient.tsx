@@ -84,6 +84,12 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
     'Nequi / Transferencia'
   );
   const [submitting, setSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+
+  const isValidColombiaMobile = (rawPhone: string) => {
+    const digits = rawPhone.replace(/\D/g, "");
+    return /^3\d{9}$/.test(digits);
+  };
 
   const updateQty = (bizId: string, prodId: string, delta: number, maxStock: number) => {
     setCarts((prev) => {
@@ -127,22 +133,26 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
 
     setSubmitting(true);
 
-    if (submitting) return;
+    if (isSubmittingRef.current || submitting) return;
+    isSubmittingRef.current = true;
     const cleanName = customerName.trim();
     const cleanPhone = customerPhone.replace(/\D/g, "");
     const cleanAddress = deliveryAddress.trim();
 
     if (!cleanName) {
+      isSubmittingRef.current = false;
       setSubmitting(false);
       alert("Por favor escribe tu nombre para el pedido.");
       return;
     }
-    if (cleanPhone.length < 10) {
+    if (!isValidColombiaMobile(cleanPhone)) {
+      isSubmittingRef.current = false;
       setSubmitting(false);
-      alert("Por favor ingresa un número de teléfono o WhatsApp válido (10 dígitos).");
+      alert("Ingresa un celular colombiano válido de 10 dígitos (ej: 3001234567).");
       return;
     }
     if (!cleanAddress) {
+      isSubmittingRef.current = false;
       setSubmitting(false);
       alert("Por favor ingresa la dirección de entrega en Pueblo Nuevo.");
       return;
@@ -167,24 +177,18 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
       .single();
 
     if (orderError) {
+      isSubmittingRef.current = false;
       setSubmitting(false);
       alert(`Error al guardar pedido: ${orderError.message}`);
       return;
     }
 
-    // 2. Descontar unidades del inventario inmediatamente
-    for (const item of summary.items) {
-      const originalProd = (checkoutBiz.products || []).find((p: any) => p.id === item.id);
-      if (originalProd) {
-        const nextStock = Math.max(0, Number(originalProd.stock_quantity) - Number(item.qty));
-        const { error: stockErr } = await supabase
-          .from('products')
-          .update({ stock_quantity: nextStock })
-          .eq('id', item.id);
-        if (stockErr) {
-          alert(`Error al descontar stock: ${stockErr.message}`);
-        }
-      }
+    // 2. Descontar unidades de forma atómica vía RPC en Supabase
+    const { error: rpcErr } = await supabase.rpc('decrement_stock_batch', {
+      p_items: summary.items.map((it: any) => ({ id: it.id, qty: Number(it.qty) || 0 })),
+    });
+    if (rpcErr) {
+      alert(`Aviso de inventario: ${rpcErr.message}`);
     }
 
     const orderCode = insertedOrder?.id ? insertedOrder.id.slice(0, 6).toUpperCase() : 'WEB';
@@ -209,7 +213,8 @@ export default function StorefrontClient({ businesses }: { businesses: any[] }) 
 
     // Limpiar carrito de esa tienda y abrir WhatsApp
     setCarts((prev) => ({ ...prev, [checkoutBiz.id]: {} }));
-    setSubmitting(false);
+    isSubmittingRef.current = false;
+      setSubmitting(false);
     const phone = checkoutBiz.phone_whatsapp;
     setCheckoutBiz(null);
 
