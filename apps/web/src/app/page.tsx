@@ -4,8 +4,8 @@ import StorefrontClient from '@/components/StorefrontClient';
 import Link from 'next/link';
 import { Store, LayoutDashboard } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+
+export const revalidate = 15;
 
 export default async function HomePage() {
   let { data: businesses, error } = await supabase
